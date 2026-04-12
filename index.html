@@ -1,1 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sovereign IDE v3.5</title>
+    <style>
+        :root {
+            --bg: #0d1117; --toolbar: #161b22; --text: #c9d1d9; --accent: #58a6ff;
+            --btn: #21262d; --border: #30363d; --highlight: rgba(255, 0, 0, 0.2);
+        }
+        /* Theme Definitions */
+        [data-theme="blue"] { --bg: #001f3f; --toolbar: #001a35; --text: #7fdbff; --btn: #003366; }
+        [data-theme="grey"] { --bg: #2b2b2b; --toolbar: #1e1e1e; --text: #e0e0e0; --btn: #3d3d3d; }
+        [data-theme="black"] { --bg: #000000; --toolbar: #111111; --text: #ffffff; --btn: #222222; }
+        [data-theme="white"] { --bg: #ffffff; --toolbar: #f0f0f0; --text: #000000; --btn: #e0e0e0; --border: #ccc; }
 
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: 0.3s; }
+        
+        #toolbar { padding: 10px; background: var(--toolbar); display: flex; gap: 6px; border-bottom: 1px solid var(--border); flex-wrap: wrap; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        
+        #editor-container { flex-grow: 1; position: relative; }
+        #backdrop {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            padding: 20px; color: transparent; white-space: pre-wrap; word-wrap: break-word;
+            pointer-events: none; z-index: 1; line-height: 1.5; font-size: 14px; overflow-y: auto;
+        }
+        mark { 
+            background: transparent; color: transparent; 
+            border: 1px dotted red; border-radius: 2px; box-shadow: inset 0 0 5px rgba(255,255,0,0.2);
+        }
+
+        textarea {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: transparent; color: var(--text); border: none; padding: 20px;
+            font-size: 14px; resize: none; outline: none; line-height: 1.5;
+            z-index: 2; white-space: pre-wrap; word-wrap: break-word; caret-color: var(--accent);
+        }
+
+        button, select, input { background: var(--btn); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 4px; font-size: 12px; }
+        button:active { background: var(--accent); color: white; transform: scale(0.95); }
+        
+        #sidebar { 
+            position: fixed; left: -280px; top: 0; width: 260px; height: 100%; 
+            background: var(--toolbar); z-index: 100; transition: 0.3s; padding: 20px;
+            border-right: 1px solid var(--border); overflow-y: auto;
+        }
+        #sidebar.open { left: 0; }
+        .slot-item { padding: 10px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body data-theme="default">
+
+<div id="sidebar">
+    <h3>Project Library (100 Slots)</h3>
+    <button onclick="saveToSlot()">+ Save to New Slot</button>
+    <div id="slot-list"></div>
+    <br><button onclick="toggleSidebar()" style="width:100%">Close</button>
+</div>
+
+<div id="toolbar">
+    <button onclick="toggleSidebar()">📁 Slots</button>
+    <button onclick="undo()">↩️</button>
+    <button onclick="redo()">↪️</button>
+    <button onclick="scanFields()">🔍 Scan</button>
+    <button onclick="toggleEdit()" id="editBtn">🔓 Edit</button>
+    <select id="themePicker" onchange="changeTheme(this.value)">
+        <option value="default">Ocean</option>
+        <option value="blue">Blue</option>
+        <option value="grey">Grey</option>
+        <option value="black">Black</option>
+        <option value="white">White</option>
+    </select>
+    <input type="text" id="fileName" value="script" style="width: 60px;">
+    <select id="extension">
+        <option value=".txt">.txt</option><option value=".py">.py</option>
+        <option value=".js">.js</option><option value=".html">.html</option>
+        <option value=".run">.run</option>
+    </select>
+    <button onclick="downloadFile()">💾 DL</button>
+</div>
+
+<div id="editor-container">
+    <div id="backdrop"></div>
+    <textarea id="editor" spellcheck="false" placeholder="Use [brackets] for editable fields..."></textarea>
+</div>
+
+<script>
+    const editor = document.getElementById('editor');
+    const backdrop = document.getElementById('backdrop');
+    let history = [];
+    let historyIndex = -1;
+
+    // 1. Core Logic & Auto-Save
+    window.onload = () => {
+        editor.value = localStorage.getItem('sov_current') || "";
+        updateHighlights();
+        renderSlots();
+    };
+
+    editor.oninput = () => {
+        saveState();
+        localStorage.setItem('sov_current', editor.value);
+        updateHighlights();
+    };
+
+    function updateHighlights() {
+        const text = editor.value;
+        backdrop.innerHTML = text.replace(/\[([^\]]+)\]/g, '<mark>[$1]</mark>') + "\n";
+    }
+
+    editor.onscroll = () => { backdrop.scrollTop = editor.scrollTop; };
+
+    // 2. Undo/Redo System
+    function saveState() {
+        if (historyIndex < history.length - 1) history = history.slice(0, historyIndex + 1);
+        history.push(editor.value);
+        if (history.length > 50) history.shift();
+        historyIndex = history.length - 1;
+    }
+
+    function undo() {
+        if (historyIndex > 0) {
+            historyIndex--;
+            editor.value = history[historyIndex];
+            updateHighlights();
+            haptic();
+        }
+    }
+
+    function redo() {
+        if (historyIndex < history.length - 1) {
+            historyIndex++;
+            editor.value = history[historyIndex];
+            updateHighlights();
+            haptic();
+        }
+    }
+
+    // 3. Library Management
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); haptic(); }
+
+    function saveToSlot() {
+        let slots = JSON.parse(localStorage.getItem('sov_slots') || "[]");
+        if (slots.length >= 100) return alert("Library full!");
+        const name = prompt("Name this slot:", "New Project " + (slots.length + 1));
+        if (name) {
+            slots.push({ name, content: editor.value, date: new Date().toLocaleDateString() });
+            localStorage.setItem('sov_slots', JSON.stringify(slots));
+            renderSlots();
+        }
+    }
+
+    function renderSlots() {
+        const list = document.getElementById('slot-list');
+        const slots = JSON.parse(localStorage.getItem('sov_slots') || "[]");
+        list.innerHTML = slots.map((s, i) => `
+            <div class="slot-item">
+                <span onclick="loadSlot(${i})">${s.name}</span>
+                <button onclick="deleteSlot(${i})">X</button>
+            </div>`).join('');
+    }
+
+    function loadSlot(i) {
+        const slots = JSON.parse(localStorage.getItem('sov_slots'));
+        editor.value = slots[i].content;
+        updateHighlights();
+        toggleSidebar();
+    }
+
+    function deleteSlot(i) {
+        let slots = JSON.parse(localStorage.getItem('sov_slots'));
+        slots.splice(i, 1);
+        localStorage.setItem('sov_slots', JSON.stringify(slots));
+        renderSlots();
+    }
+
+    // 4. Utils
+    function haptic() { if (navigator.vibrate) navigator.vibrate(10); }
+
+    function changeTheme(theme) { document.body.setAttribute('data-theme', theme); }
+
+    function toggleEdit() {
+        editor.readOnly = !editor.readOnly;
+        document.getElementById('editBtn').innerText = editor.readOnly ? "🔒 View" : "🔓 Edit";
+        haptic();
+    }
+
+    function scanFields() {
+        const matches = [...editor.value.matchAll(/\[([^\]]+)\]/g)];
+        if (matches.length === 0) return alert("No [fields] found!");
+        matches.forEach(m => {
+            const val = prompt(`Value for ${m[0]}:`, m[1]);
+            if (val) editor.value = editor.value.replace(m[0], val);
+        });
+        updateHighlights();
+    }
+
+    function downloadFile() {
+        const blob = new Blob([editor.value], { type: "text/plain" });
+        const a = document.createElement("a");
+        a.download = document.getElementById('fileName').value + document.getElementById('extension').value;
+        a.href = URL.createObjectURL(blob);
+        a.click();
+        haptic();
+    }
+</script>
+</body>
+</html>
