@@ -3,151 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sovereign IDE v5.0</title>
+    <title>SOVEREIGN v5.9</title>
     <style>
-        :root {
-            --bg: #0d1117; --toolbar: #161b22; --text: #c9d1d9; --accent: #58a6ff;
-            --btn: #21262d; --border: #30363d; --redwater: rgba(255, 0, 0, 0.6);
-        }
-        [data-theme="blue"] { --bg: #001f3f; --toolbar: #001a35; --text: #7fdbff; --btn: #003366; }
-        [data-theme="black"] { --bg: #000000; --toolbar: #111111; --text: #ffffff; --btn: #222222; }
-        
-        /* BLOCK 2: MAIN LAYOUT (VERTICAL DOCK) */
-        body { 
-            margin: 0; background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; 
-            height: 100vh; display: flex; flex-direction: row-reverse; overflow: hidden; 
-        }
-        #toolbar { 
-            width: 75px; height: 100vh; background: var(--toolbar); display: flex; 
-            flex-direction: column; gap: 10px; border-left: 1px solid var(--border); 
-            padding: 10px 5px; z-index: 10; align-items: center;
-        }
-
-        /* BLOCK 3: REDWATER GLOW REFINED */
-        #backdrop {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            padding: 20px; color: transparent; white-space: pre-wrap; word-wrap: break-word;
-            pointer-events: none; z-index: 1; line-height: 1.5; overflow-y: auto;
-        }
-        mark { 
-            background: transparent; color: transparent; 
-            border: 1.5px dotted red; border-radius: 3px; 
-            box-shadow: 0 0 12px var(--redwater);
-            animation: redwater-pulse 2s infinite;
-        }
-        @keyframes redwater-pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-
-        /* BLOCK 4: MOBILE UI CSS */
-        #editor-container { flex-grow: 1; position: relative; display: flex; flex-direction: column; }
-        textarea {
-            flex-grow: 1; background: transparent; color: var(--text); border: none; padding: 20px;
-            font-size: 14px; resize: none; outline: none; z-index: 2; caret-color: #00ffff;
-        }
-        #fab-save { position: fixed; bottom: 25px; left: 25px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: white; border: none; z-index: 150; font-size: 22px; box-shadow: 0 4px 15px #000; }
-        .slot-active { border-left: 4px solid #00ffff; background: rgba(0,255,255,0.1); }
+        :root { --bg: #0a0a0a; --accent: #ff0000; --text: #e0e0e0; --panel: #1a1a1a; --glow: 0 0 10px #ff0000; }
+    </style>
+    <style>
+        body { background: var(--bg); color: var(--text); font-family: monospace; margin: 0; overflow: hidden; }
+        #app { display: grid; grid-template-columns: 60px 1fr; height: 100vh; }
+    </style>
+    <style>
+        #sidebar { background: var(--panel); border-right: 1px solid #333; display: flex; flex-direction: column; align-items: center; padding-top: 10px; overflow-y: auto; }
+        .slot-btn { width: 40px; height: 40px; margin: 5px 0; border: 1px solid #444; background: #222; color: #888; cursor: pointer; transition: 0.2s; }
+        .slot-btn.active { border-color: var(--accent); color: white; box-shadow: var(--glow); }
+    </style>
+    <style>
+        #controls { height: 50px; background: #111; display: flex; align-items: center; padding: 0 15px; border-bottom: 1px solid #333; justify-content: space-between; }
+        .redwater-glow { text-shadow: var(--glow); color: var(--accent); font-weight: bold; letter-spacing: 1px; }
+        select, button { background: #222; color: white; border: 1px solid #444; padding: 5px 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div id="toolbar">
-    <button onclick="toggleSidebar()">📁</button>
-    <button onclick="undo()">↩️</button>
-    <button onclick="redo()">↪️</button>
-    <button onclick="scanFields()">🔍</button>
-    <button onclick="toggleEdit()" id="editBtn">🔓</button>
-    <button onclick="runCode()" style="background:#2e7d32;">▶</button>
-    <select id="themePicker" onchange="changeTheme(this.value)"><option value="default">Def</option><option value="blue">Blu</option><option value="black">Blk</option></select>
-    <input type="text" id="fileName" placeholder="File" style="width:85%;">
-    <select id="extension"><option value=".txt">.tx</option><option value=".py">.py</option><option value=".js">.js</option></select>
-    <button onclick="downloadFile()">💾</button>
-</div>
+<div id="app">
+    <div id="sidebar" id="slot-container"></div>
 
-<div id="sidebar" style="position:fixed; left:-280px; top:0; width:260px; height:100%; background:var(--toolbar); z-index:200; transition:0.3s; padding:20px; border-right:1px solid var(--border); overflow-y:auto;">
-    <h3>Library</h3>
-    <button onclick="saveToSlot()">+ New Slot</button>
-    <div style="margin:10px 0;">
-        <select id="sortExt" onchange="renderSlots()"><option value="all">All</option><option value=".js">.js</option><option value=".py">.py</option><option value=".txt">.txt</option></select>
-        <button onclick="killSwitch()" style="background:#8b0000; margin-top:5px;">WIPE ALL</button>
-    </div>
-    <div id="slot-list"></div>
-    <button onclick="toggleSidebar()" style="margin-top:20px;">CLOSE</button>
-</div>
+    <div id="main" style="display: flex; flex-direction: column;">
+        <div id="controls">
+            <div class="redwater-glow" id="brand">SOVEREIGN v5.9</div>
+            <div>
+                <select id="ext-select">
+                    <option value="txt">.txt</option>
+                    <option value="js">.js</option>
+                    <option value="html">.html</option>
+                    <option value="css">.css</option>
+                    <option value="json">.json</option>
+                    <option value="sh">.sh</option>
+                    <option value="run">.run</option>
+                    <option value="pdf">.pdf</option>
+                </select>
+                <button id="save-trigger">💾 SAVE TO PHONE</button>
+            </div>
+        </div>
 
-<div id="editor-container">
-    <div id="backdrop"></div>
-    <textarea id="editor" spellcheck="false"></textarea>
-    
-    <div id="terminal" style="height:30%; background:#000; color:#0f0; border-top:2px solid var(--border); padding:15px; font-size:12px; overflow-y:auto; display:none; position:relative;">
-        <button onclick="closeTerminal()" style="position:absolute; right:10px; top:10px; width:30px; padding:2px; background:#444;">X</button>
-        <div id="term-out"></div>
+        <textarea id="editor" spellcheck="false" placeholder="Ample Space awaiting input... " style="flex-grow: 1; background: transparent; color: #00ff00; border: none; padding: 20px; font-size: 16px; outline: none; resize: none;"></textarea>
+
+        <div id="status-bar" style="height:25px; font-size:12px; padding:5px 15px; background:#000; color:#666; border-top:1px solid #222; display: flex; justify-content: space-between;">
+            <div id="terminal-out">SYSTEM READY</div>
+            <div>RAM: <span id="mem-count">0</span> | SLOT: <span id="active-label">1</span></div>
+        </div>
     </div>
 </div>
-
-<button id="fab-save" onclick="saveToSlot()">💾</button>
 
 <script>
+    /* Block 9: Memory Initialization (Connecting to RAM) */
+    let currentSlot = 1;
     const editor = document.getElementById('editor');
-    const backdrop = document.getElementById('backdrop');
-    const term = document.getElementById('terminal');
-    const termOut = document.getElementById('term-out');
+    const sidebar = document.getElementById('sidebar');
+
+    /* Block 10: Slot Generation (Building the 100 buttons) */
+    function createSlotButtons() {
+        for(let i=1; i<=100; i++) {
+            let b = document.createElement('button');
+            b.className = 'slot-btn';
+            b.innerText = i;
+            b.id = 'slot-' + i;
+            b.onclick = () => handleSlotClick(i);
+            sidebar.appendChild(b);
+        }
+    }
+
+    /* Block 11: Persistent Save Engine (Auto-save to internal space) */
+    function saveToInternal() {
+        localStorage.setItem('sov_storage_slot_' + currentSlot, editor.value);
+        updateCharCount();
+        terminalLog("AUTO-SAVED SLOT " + currentSlot);
+    }
+
+    function loadFromInternal(n) {
+        return localStorage.getItem('sov_storage_slot_' + n) || '';
+    }
+
+    /* Block 12: Slot Management (Switching logic) */
+    function handleSlotClick(n) {
+        preventDataLoss();
+        switchSlot(n);
+    }
+
+    function switchSlot(n) {
+        currentSlot = n;
+        editor.value = loadFromInternal(n);
+        highlightActiveSlot(n);
+        updateActiveLabel(n);
+        updateCharCount();
+    }
+
+    function highlightActiveSlot(n) {
+        document.querySelectorAll('.slot-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('slot-' + n).classList.add('active');
+    }
+
+    /* Block 13: The Extension Matrix (The MIME dictionary) */
+    function getMime(ext) {
+        const matrix = {
+            txt: 'text/plain',
+            js: 'application/javascript',
+            html: 'text/html',
+            css: 'text/css',
+            json: 'application/json',
+            sh: 'application/x-sh',
+            run: 'application/octet-stream',
+            pdf: 'application/pdf'
+        };
+        return matrix[ext] || 'text/plain';
+    }
+
+    /* Block 14: The Casting Bridge (Force Download logic) */
+    function castFile() {
+        const ext = document.getElementById('ext-select').value;
+        const fileName = `sov_export_s${currentSlot}.${ext}`;
+        const blob = constructBlob(editor.value, getMime(ext));
+        const anchor = createGhostAnchor(blob, fileName);
+        triggerDownload(anchor);
+        cleanupAnchor(anchor, blob);
+    }
+
+    function constructBlob(data, type) { return new Blob([data], { type: type }); }
     
-    // BLOCK 9: GLOBAL & INIT (JS) - Function 1, 2
-    window.onload = () => { editor.value = localStorage.getItem('sov_current') || ""; updateHighlights(); renderSlots(); };
-    document.addEventListener('click', (e) => { if(['BUTTON','SELECT','INPUT'].includes(e.target.tagName)) haptic(15); });
-
-    // Function 3: Haptic Driver
-    function haptic(ms) { if (navigator.vibrate) navigator.vibrate(ms || 10); }
-
-    // Function 4: Redwater Engine
-    function updateHighlights() { backdrop.innerHTML = editor.value.replace(/\[([^\]]+)\]/g, '<mark>[$1]</mark>') + "\n"; }
-    editor.oninput = () => { saveState(); localStorage.setItem('sov_current', editor.value); updateHighlights(); };
-    editor.onscroll = () => { backdrop.scrollTop = editor.scrollTop; };
-
-    // BLOCK 10: FEATURE LOGIC (JS) - Function 5, 6, 7, 8
-    function runCode() { 
-        term.style.display = "block"; termOut.innerHTML = "Running...<br>";
-        try { if(document.getElementById('extension').value==='.js'){ termOut.innerHTML += "> " + eval(editor.value); }else{ termOut.innerHTML += "Script Logged."; } }
-        catch(e) { termOut.innerHTML += "Err: " + e.message; } haptic(30);
-    }
-    function closeTerminal() { term.style.display = "none"; haptic(10); } // Function 9
-    function toggleEdit() { editor.readOnly = !editor.readOnly; document.getElementById('editBtn').innerText = editor.readOnly ? "🔒" : "🔓"; haptic(20); }
-    function scanFields() { 
-        const matches = [...editor.value.matchAll(/\[([^\]]+)\]/g)];
-        matches.forEach(m => { const val = prompt(`Value for ${m[0]}:`, m[1]); if(val) editor.value = editor.value.replace(m[0], val); });
-        updateHighlights(); 
+    function createGhostAnchor(blob, name) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        return a;
     }
 
-    // BLOCK 11: LIBRARY MANAGEMENT (JS) - Function 10, 11, 12, 13, 14
-    function toggleSidebar() { const s = document.getElementById('sidebar'); s.style.left = s.style.left === '0px' ? '-280px' : '0px'; haptic(10); }
-    function saveToSlot() {
-        let slots = JSON.parse(localStorage.getItem('sov_slots') || "[]");
-        const name = prompt("Slot Name:");
-        if(name){ slots.push({name, content: editor.value, ext: document.getElementById('extension').value}); localStorage.setItem('sov_slots', JSON.stringify(slots)); renderSlots(); }
-    }
-    function renderSlots() { // BLOCK 12: FILTER LOGIC (JS)
-        const filter = document.getElementById('sortExt').value;
-        let slots = JSON.parse(localStorage.getItem('sov_slots') || "[]");
-        document.getElementById('slot-list').innerHTML = slots
-            .map((s, i) => (filter==='all' || s.ext===filter) ? `<div class="slot-item" onclick="loadSlot(${i})" style="padding:10px; border-bottom:1px solid #333; cursor:pointer;">${s.name} <small>${s.ext}</small></div>` : '')
-            .join('');
-    }
-    function loadSlot(i) { const slots = JSON.parse(localStorage.getItem('sov_slots')); editor.value = slots[i].content; updateHighlights(); toggleSidebar(); haptic(25); }
-    function killSwitch() { if(confirm("Wipe 100 Slots?")){ localStorage.clear(); location.reload(); } }
+    function triggerDownload(a) { a.click(); terminalLog("FILE CAST SUCCESSFUL"); }
 
-    // BLOCK 13: HISTORY ENGINE (JS) - Function 15, 16, 17, 18
-    let history = []; let historyIndex = -1;
-    function saveState() {
-        if(historyIndex < history.length - 1) history = history.slice(0, historyIndex + 1);
-        history.push(editor.value); if(history.length > 50) history.shift(); historyIndex = history.length - 1;
+    function cleanupAnchor(a, b) {
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(a.href), 100);
     }
-    function undo() { if(historyIndex > 0){ historyIndex--; editor.value = history[historyIndex]; updateHighlights(); haptic(10); } }
-    function redo() { if(historyIndex < history.length - 1){ historyIndex++; editor.value = history[historyIndex]; updateHighlights(); haptic(10); } }
-    function downloadFile() {
-        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([editor.value]));
-        a.download = (document.getElementById('fileName').value || 'note') + document.getElementById('extension').value;
-        a.click(); haptic(40); document.getElementById('fileName').value = "";
+
+    // Helper Functions for UI Logic
+    function updateCharCount() { document.getElementById('mem-count').innerText = editor.value.length; }
+    function updateActiveLabel(n) { document.getElementById('active-label').innerText = n; }
+    function terminalLog(msg) { document.getElementById('terminal-out').innerText = "> " + msg; }
+    function preventDataLoss() { saveToInternal(); }
+    function applyRedwater() { console.log("Redwater Baseline Active"); }
+
+    // Initialization
+    function initApp() {
+        createSlotButtons();
+        switchSlot(1);
+        editor.oninput = () => {
+            updateCharCount();
+            saveToInternal();
+        };
+        document.getElementById('save-trigger').onclick = castFile;
+        applyRedwater();
     }
-    function changeTheme(t) { document.body.setAttribute('data-theme', t); haptic(10); }
+
+    initApp();
 </script>
 </body>
 </html>
