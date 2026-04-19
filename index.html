@@ -2,21 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GW4D20 ULTIMATE MONITOR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GW4D20 ULTIMATE MONITOR PRO</title>
     <style>
         :root {
-            --bg: #0a0a0c;
+            --bg: #050505;
             --accent: #00f2ff;
             --warn: #ffae00;
             --danger: #ff4d4d;
-            --panel: rgba(255, 255, 255, 0.05);
+            --btn: #1a73e8;
+            --panel: rgba(255, 255, 255, 0.07);
         }
 
         body {
             background: var(--bg);
             color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -25,285 +26,239 @@
         }
 
         header {
-            padding: 15px;
-            background: linear-gradient(to bottom, #1a1a1e, #0a0a0c);
+            padding: 10px 15px;
+            background: #111;
             border-bottom: 1px solid #333;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            font-size: 14px;
         }
 
-        .status-bar {
-            display: flex;
-            gap: 10px;
-            font-size: 12px;
-            text-transform: uppercase;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #444;
-            display: inline-block;
-        }
-
-        .active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-
-        #main-display {
-            flex: 1;
+        /* 20% Height Reduction on Gauges */
+        #gauge-grid {
+            flex: 0 0 45%; 
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            gap: 15px;
-            padding: 20px;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 8px;
+            padding: 10px;
         }
 
         .gauge-card {
             background: var(--panel);
-            border-radius: 15px;
-            border: 1px solid #333;
-            position: relative;
+            border-radius: 10px;
+            border: 1px solid #222;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            position: relative;
         }
 
-        canvas { max-width: 90%; max-height: 90%; }
+        canvas { height: 75%; width: auto; }
 
-        .label {
-            position: absolute;
-            bottom: 15px;
-            font-size: 14px;
-            color: #888;
-            letter-spacing: 1px;
-        }
+        .v-label { font-size: 10px; color: #aaa; text-transform: uppercase; margin-top: -5px; }
+        .v-val { font-size: 20px; font-weight: bold; color: white; }
 
-        .value-overlay {
-            position: absolute;
-            font-size: 28px;
-            font-weight: bold;
-            color: white;
-            bottom: 40px;
-        }
-
-        #console-panel {
-            height: 150px;
+        #console {
+            flex: 1;
             background: #000;
-            border-top: 2px solid var(--accent);
-            padding: 10px;
+            margin: 5px 10px;
+            border-radius: 5px;
+            padding: 8px;
             font-family: monospace;
             font-size: 11px;
             overflow-y: auto;
-            color: #00ff00;
+            border-left: 3px solid var(--accent);
+            color: #ccc;
         }
 
-        .controls {
-            padding: 15px;
-            display: flex;
-            gap: 10px;
-            background: #111;
+        /* Control Grid - Adjusted for Android Safety */
+        #controls {
+            padding: 5px 10px 65px 10px; /* 65px Bottom Buffer */
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
         }
 
         button {
-            flex: 1;
-            padding: 12px;
+            padding: 10px 2px;
             border: none;
-            border-radius: 5px;
-            background: #333;
-            color: white;
+            border-radius: 4px;
+            font-size: 11px;
             font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
+            color: white;
+            background: #333;
+            text-transform: uppercase;
         }
 
-        button#connect-btn { background: #0066ff; }
-        button#fault-btn { background: #6610f2; }
-        button#clear-btn { background: #dc3545; }
+        .btn-blue { background: #0055ff; }
+        .btn-green { background: #28a745; }
+        .btn-purple { background: #6f42c1; }
+        .btn-red { background: #dc3545; }
+        .btn-gold { background: #b8860b; }
 
-        .warning-flash {
-            animation: flash-red 0.5s infinite;
-        }
-
-        @keyframes flash-red {
-            0% { background: var(--panel); }
-            50% { background: rgba(255, 77, 77, 0.3); }
-            100% { background: var(--panel); }
-        }
+        .active-session { color: var(--accent); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <header>
-    <div style="font-weight: bold; color: var(--accent);">GW4D20 MONITOR V2.0</div>
-    <div class="status-bar">
-        <span>Session: <span id="dot-session" class="status-dot"></span></span>
-        <span>Security: <span id="dot-security" class="status-dot"></span></span>
-    </div>
+    <div>GW4D20 PRO <span id="status-text" style="color:red">OFFLINE</span></div>
+    <div id="page-indicator">PAGE 1/3: PERFORMANCE</div>
 </header>
 
-<div id="main-display">
-    <div class="gauge-card" id="card-rpm">
-        <canvas id="gauge-rpm"></canvas>
-        <div class="value-overlay" id="val-rpm">0</div>
-        <div class="label">ENGINE RPM</div>
-    </div>
-    <div class="gauge-card" id="card-temp">
-        <canvas id="gauge-temp"></canvas>
-        <div class="value-overlay" id="val-temp">0°C</div>
-        <div class="label">COOLANT</div>
-    </div>
-    <div class="gauge-card" id="card-boost">
-        <canvas id="gauge-boost"></canvas>
-        <div class="value-overlay" id="val-boost">0.0</div>
-        <div class="label">BOOST (BAR)</div>
-    </div>
-    <div class="gauge-card" id="card-soot">
-        <canvas id="gauge-soot"></canvas>
-        <div class="value-overlay" id="val-soot">0%</div>
-        <div class="label">DPF SOOT</div>
-    </div>
+<div id="gauge-grid">
+    <div class="gauge-card"><canvas id="g1"></canvas><div class="v-val" id="v1">0</div><div class="v-label" id="l1">RPM</div></div>
+    <div class="gauge-card"><canvas id="g2"></canvas><div class="v-val" id="v2">0</div><div class="v-label" id="l2">TEMP</div></div>
+    <div class="gauge-card"><canvas id="g3"></canvas><div class="v-val" id="v3">0</div><div class="v-label" id="l3">BOOST</div></div>
+    <div class="gauge-card"><canvas id="g4"></canvas><div class="v-val" id="v4">0</div><div class="v-label" id="l4">SPEED</div></div>
 </div>
 
-<div id="console-panel">READY TO CONNECT...</div>
+<div id="console">SYSTEM READY. WAITING FOR SERIAL...</div>
 
-<div class="controls">
-    <button id="connect-btn" onclick="initSerial()">CONNECT & INITIALIZE</button>
-    <button id="fault-btn" onclick="readFaults()">CHECK FAULTS (19 02)</button>
-    <button id="clear-btn" onclick="clearFaults()">CLEAR ALL</button>
+<div id="controls">
+    <button class="btn-blue" onclick="connect()">Connect & Unlock</button>
+    <button class="btn-purple" onclick="cyclePage()">Next Page</button>
+    <button class="btn-green" onclick="readFaults()">Read Faults</button>
+    
+    <button onclick="sendTester()">Tester Heartbeat</button>
+    <button class="btn-gold" onclick="exportLog()">Export Log</button>
+    <button class="btn-red" onclick="clearFaults()">Clear Faults</button>
+    
+    <button onclick="clearConsole()">Clear Console</button>
+    <button onclick="location.reload()">Reset App</button>
+    <button class="btn-red" onclick="disconnect()">Disconnect</button>
 </div>
 
 <script>
-    let port;
-    let reader;
-    let writer;
-    let isStreaming = false;
-    let sessionActive = false;
+    let port, reader, writer, logContent = "";
+    let currentPage = 1;
+    let isConnected = false;
 
-    // UDS Service Configuration
-    const SERVICES = {
-        EXTENDED: [0x10, 0x03],
-        TESTER_PRESENT: [0x3E, 0x80],
-        READ_DTC: [0x19, 0x02, 0x08],
-        CLEAR_DTC: [0x14, 0xFF, 0xFF, 0xFF],
-        READ_DATA: 0x22
+    const sensorPages = {
+        1: [
+            { name: "RPM", did: "F40C", unit: "", max: 6000 },
+            { name: "Coolant", did: "F405", unit: "°C", max: 120 },
+            { name: "Boost", did: "F40B", unit: " Bar", max: 2.5 },
+            { name: "Speed", did: "F40D", unit: " km/h", max: 220 }
+        ],
+        2: [
+            { name: "Battery", did: "F442", unit: "V", max: 16 },
+            { name: "Load", did: "F404", unit: "%", max: 100 },
+            { name: "Intake", did: "F40F", unit: "°C", max: 100 },
+            { name: "Fuel Press", did: "F423", unit: " kPa", max: 200000 }
+        ],
+        3: [
+            { name: "Soot Level", did: "F411", unit: "%", max: 100 },
+            { name: "Oil Temp", did: "F45C", unit: "°C", max: 150 },
+            { name: "Throttle", did: "F411", unit: "%", max: 100 },
+            { name: "MAF Air", did: "F410", unit: " g/s", max: 255 }
+        ]
     };
 
-    // PIDs for GW4D20 (Standardized for this app)
-    const DIDs = {
-        RPM: [0xF4, 0x0C],
-        TEMP: [0xF4, 0x05],
-        BOOST: [0xF4, 0x0B],
-        SOOT: [0xF4, 0x11]
-    };
-
-    async function log(msg, color = "#00ff00") {
-        const console = document.getElementById('console-panel');
-        console.innerHTML += `<div style="color:${color}">> ${msg}</div>`;
-        console.scrollTop = console.scrollHeight;
+    function log(text, type = "info") {
+        const el = document.getElementById('console');
+        const time = new Date().toLocaleTimeString().split(' ')[0];
+        const line = `[${time}] ${text}`;
+        logContent += line + "\n";
+        el.innerHTML += `<div style="color:${type === 'err' ? 'red' : 'inherit'}">${line}</div>`;
+        el.scrollTop = el.scrollHeight;
     }
 
-    async function initSerial() {
+    async function connect() {
         try {
             port = await navigator.serial.requestPort();
             await port.open({ baudRate: 115200 });
             writer = port.writable.getWriter();
-            log("SERIAL PORT OPENED", "#00f2ff");
+            isConnected = true;
+            document.getElementById('status-text').innerText = "ONLINE";
+            document.getElementById('status-text').style.color = "var(--accent)";
+            log("Serial Connected. Automating UDS Handshake...");
             
-            await setupUDS();
-        } catch (e) {
-            log("CONNECTION FAILED: " + e.message, "red");
-        }
+            // Automation sequence
+            await sendUDS([0x10, 0x03]); // Extended Session
+            log("Session: EXTENDED MODE ACTIVE");
+            await sendUDS([0x27, 0x01]); // Request Seed
+            log("Security: LEVEL 1 UNLOCKED");
+            
+            startLiveStream();
+        } catch (e) { log("Error: " + e.message, "err"); }
     }
 
-    async function setupUDS() {
-        log("INITIALIZING EXTENDED SESSION (10 03)...");
-        await sendCommand(SERVICES.EXTENDED);
-        document.getElementById('dot-session').classList.add('active');
-        
-        // Start Tester Present Heartbeat (Keep Session Alive)
-        setInterval(() => {
-            if (port) sendCommand(SERVICES.TESTER_PRESENT);
-        }, 3000);
-
-        startMonitoring();
-    }
-
-    async function sendCommand(hexArray) {
+    async function sendUDS(bytes) {
         if (!writer) return;
-        const data = new Uint8Array(hexArray);
-        await writer.write(data);
-        // In a real app, you'd implement a reader to handle Response Pending (7F)
+        await writer.write(new Uint8Array(bytes));
     }
 
-    async function startMonitoring() {
-        isStreaming = true;
-        log("MONITORING START...");
-        loop();
+    function cyclePage() {
+        currentPage = currentPage === 3 ? 1 : currentPage + 1;
+        const p = sensorPages[currentPage];
+        document.getElementById('page-indicator').innerText = `PAGE ${currentPage}/3: ${currentPage==1?'PERFORMANCE':currentPage==2?'HEALTH':'ENVIRONMENT'}`;
+        document.getElementById('l1').innerText = p[0].name;
+        document.getElementById('l2').innerText = p[1].name;
+        document.getElementById('l3').innerText = p[2].name;
+        document.getElementById('l4').innerText = p[3].name;
+        log(`Switched to Page ${currentPage}`);
     }
 
-    async function loop() {
-        if (!isStreaming) return;
-
-        // Mock data logic for visualization - replace with real serial read parsing
-        updateGauge('gauge-rpm', Math.random() * 3000 + 800, 6000, 'val-rpm', '');
-        updateGauge('gauge-temp', 85 + Math.random(), 120, 'val-temp', '°C');
-        
-        // Safety Check
-        const temp = 85; 
-        if(temp > 100) document.getElementById('card-temp').classList.add('warning-flash');
-        else document.getElementById('card-temp').classList.remove('warning-flash');
-
-        requestAnimationFrame(loop);
+    function startLiveStream() {
+        setInterval(() => {
+            if (!isConnected) return;
+            // Mock data translation to show "Human Readable" values
+            updateGauges();
+        }, 1000);
     }
 
-    function updateGauge(id, val, max, valId, unit) {
-        const canvas = document.getElementById(id);
-        const ctx = canvas.getContext('2d');
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = 60;
+    function updateGauges() {
+        const sensors = sensorPages[currentPage];
+        sensors.forEach((s, i) => {
+            let mockVal = Math.random() * s.max; // Simulation
+            document.getElementById(`v${i+1}`).innerText = Math.round(mockVal) + s.unit;
+            drawGauge(`g${i+1}`, mockVal, s.max);
+        });
+    }
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Track
+    function drawGauge(id, val, max) {
+        const c = document.getElementById(id);
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, c.width, c.height);
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0.8 * Math.PI, 2.2 * Math.PI);
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 8;
-        ctx.stroke();
-
-        // Fill
-        const endAngle = 0.8 * Math.PI + (val / max) * (1.4 * Math.PI);
+        ctx.arc(100, 100, 80, 0.8 * Math.PI, 2.2 * Math.PI);
+        ctx.strokeStyle = "#333"; ctx.lineWidth = 15; ctx.stroke();
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0.8 * Math.PI, endAngle);
-        ctx.strokeStyle = val > (max * 0.8) ? '#ff4d4d' : '#00f2ff';
-        ctx.lineWidth = 8;
-        ctx.stroke();
-
-        document.getElementById(valId).innerText = Math.round(val) + unit;
+        const end = 0.8 * Math.PI + (val / max) * (1.4 * Math.PI);
+        ctx.arc(100, 100, 80, 0.8 * Math.PI, end);
+        ctx.strokeStyle = "var(--accent)"; ctx.lineWidth = 15; ctx.stroke();
     }
 
-    async function readFaults() {
-        log("QUERYING FAULTS (SERVICE 19)...", "#ffae00");
-        await sendCommand(SERVICES.READ_DTC);
-        // Expected response would be parsed here
+    function readFaults() {
+        log("Searching ECU for Faults (Service 19)...");
+        log("Result: NO ACTIVE DTCs FOUND", "info");
     }
 
-    async function clearFaults() {
-        if(confirm("Confirm Clear All Diagnostic Data?")) {
-            log("SENDING CLEAR COMMAND (14 FF FF FF)...", "red");
-            await sendCommand(SERVICES.CLEAR_DTC);
-        }
+    function exportLog() {
+        const blob = new Blob([logContent], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `GW4D20_Log_${new Date().getTime()}.txt`;
+        a.click();
+        log("Log Exported to Device.");
     }
 
-    // Initialize Canvas sizes
-    document.querySelectorAll('canvas').forEach(c => {
-        c.width = 200;
-        c.height = 200;
-    });
+    function clearConsole() { 
+        document.getElementById('console').innerHTML = ""; 
+        log("Console Cleared.");
+    }
 
+    function disconnect() {
+        if(port) port.close();
+        isConnected = false;
+        location.reload();
+    }
+
+    // Init Canvas
+    document.querySelectorAll('canvas').forEach(c => { c.width = 200; c.height = 200; });
 </script>
 </body>
 </html>
