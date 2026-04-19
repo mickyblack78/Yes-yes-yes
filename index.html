@@ -3,168 +3,307 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOV</title>
+    <title>GW4D20 ULTIMATE MONITOR</title>
     <style>
-        :root { --bg: #0a0a0a; --accent: #ff0000; --text: #e0e0e0; --panel: #1a1a1a; --glow: 0 0 10px #ff0000; }
-    </style>
-    <style>
-        body { background: var(--bg); color: var(--text); font-family: monospace; margin: 0; overflow: hidden; }
-        #app { display: grid; grid-template-columns: 60px 1fr; height: 100vh; }
-    </style>
-    <style>
-        #sidebar { background: var(--panel); border-right: 1px solid #333; display: flex; flex-direction: column; align-items: center; padding-top: 10px; overflow-y: auto; }
-        .slot-btn { width: 40px; height: 40px; margin: 5px 0; border: 1px solid #444; background: #222; color: #888; cursor: pointer; transition: 0.2s; }
-        .slot-btn.active { border-color: var(--accent); color: white; box-shadow: var(--glow); }
-    </style>
-    <style>
-        #controls { height: 50px; background: #111; display: flex; align-items: center; padding: 0 15px; border-bottom: 1px solid #333; justify-content: space-between; }
-        .redwater-glow { text-shadow: var(--glow); color: var(--accent); font-weight: bold; letter-spacing: 1px; }
-        select, button { background: #222; color: white; border: 1px solid #444; padding: 5px 10px; cursor: pointer; }
+        :root {
+            --bg: #0a0a0c;
+            --accent: #00f2ff;
+            --warn: #ffae00;
+            --danger: #ff4d4d;
+            --panel: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            background: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 15px;
+            background: linear-gradient(to bottom, #1a1a1e, #0a0a0c);
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 10px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #444;
+            display: inline-block;
+        }
+
+        .active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+        #main-display {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .gauge-card {
+            background: var(--panel);
+            border-radius: 15px;
+            border: 1px solid #333;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas { max-width: 90%; max-height: 90%; }
+
+        .label {
+            position: absolute;
+            bottom: 15px;
+            font-size: 14px;
+            color: #888;
+            letter-spacing: 1px;
+        }
+
+        .value-overlay {
+            position: absolute;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            bottom: 40px;
+        }
+
+        #console-panel {
+            height: 150px;
+            background: #000;
+            border-top: 2px solid var(--accent);
+            padding: 10px;
+            font-family: monospace;
+            font-size: 11px;
+            overflow-y: auto;
+            color: #00ff00;
+        }
+
+        .controls {
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            background: #111;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background: #333;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button#connect-btn { background: #0066ff; }
+        button#fault-btn { background: #6610f2; }
+        button#clear-btn { background: #dc3545; }
+
+        .warning-flash {
+            animation: flash-red 0.5s infinite;
+        }
+
+        @keyframes flash-red {
+            0% { background: var(--panel); }
+            50% { background: rgba(255, 77, 77, 0.3); }
+            100% { background: var(--panel); }
+        }
     </style>
 </head>
 <body>
 
-<div id="app">
-    <div id="sidebar" id="slot-container"></div>
+<header>
+    <div style="font-weight: bold; color: var(--accent);">GW4D20 MONITOR V2.0</div>
+    <div class="status-bar">
+        <span>Session: <span id="dot-session" class="status-dot"></span></span>
+        <span>Security: <span id="dot-security" class="status-dot"></span></span>
+    </div>
+</header>
 
-    <div id="main" style="display: flex; flex-direction: column;">
-        <div id="controls">
-            <div class="redwater-glow" id="brand">SOVEREIGN v5.9</div>
-            <div>
-                <select id="ext-select">
-                    <option value="txt">.txt</option>
-                    <option value="js">.js</option>
-                    <option value="html">.html</option>
-                    <option value="css">.css</option>
-                    <option value="json">.json</option>
-                    <option value="sh">.sh</option>
-                    <option value="run">.run</option>
-                    <option value="pdf">.pdf</option>
-                </select>
-                <button id="save-trigger">💾 SAVE TO PHONE</button>
-            </div>
-        </div>
-
-        <textarea id="editor" spellcheck="false" placeholder="Ample Space awaiting input... " style="flex-grow: 1; background: transparent; color: #00ff00; border: none; padding: 20px; font-size: 16px; outline: none; resize: none;"></textarea>
-
-        <div id="status-bar" style="height:25px; font-size:12px; padding:5px 15px; background:#000; color:#666; border-top:1px solid #222; display: flex; justify-content: space-between;">
-            <div id="terminal-out">SYSTEM READY</div>
-            <div>RAM: <span id="mem-count">0</span> | SLOT: <span id="active-label">1</span></div>
-        </div>
+<div id="main-display">
+    <div class="gauge-card" id="card-rpm">
+        <canvas id="gauge-rpm"></canvas>
+        <div class="value-overlay" id="val-rpm">0</div>
+        <div class="label">ENGINE RPM</div>
+    </div>
+    <div class="gauge-card" id="card-temp">
+        <canvas id="gauge-temp"></canvas>
+        <div class="value-overlay" id="val-temp">0°C</div>
+        <div class="label">COOLANT</div>
+    </div>
+    <div class="gauge-card" id="card-boost">
+        <canvas id="gauge-boost"></canvas>
+        <div class="value-overlay" id="val-boost">0.0</div>
+        <div class="label">BOOST (BAR)</div>
+    </div>
+    <div class="gauge-card" id="card-soot">
+        <canvas id="gauge-soot"></canvas>
+        <div class="value-overlay" id="val-soot">0%</div>
+        <div class="label">DPF SOOT</div>
     </div>
 </div>
 
-<script>
-    /* Block 9: Memory Initialization (Connecting to RAM) */
-    let currentSlot = 1;
-    const editor = document.getElementById('editor');
-    const sidebar = document.getElementById('sidebar');
+<div id="console-panel">READY TO CONNECT...</div>
 
-    /* Block 10: Slot Generation (Building the 100 buttons) */
-    function createSlotButtons() {
-        for(let i=1; i<=100; i++) {
-            let b = document.createElement('button');
-            b.className = 'slot-btn';
-            b.innerText = i;
-            b.id = 'slot-' + i;
-            b.onclick = () => handleSlotClick(i);
-            sidebar.appendChild(b);
+<div class="controls">
+    <button id="connect-btn" onclick="initSerial()">CONNECT & INITIALIZE</button>
+    <button id="fault-btn" onclick="readFaults()">CHECK FAULTS (19 02)</button>
+    <button id="clear-btn" onclick="clearFaults()">CLEAR ALL</button>
+</div>
+
+<script>
+    let port;
+    let reader;
+    let writer;
+    let isStreaming = false;
+    let sessionActive = false;
+
+    // UDS Service Configuration
+    const SERVICES = {
+        EXTENDED: [0x10, 0x03],
+        TESTER_PRESENT: [0x3E, 0x80],
+        READ_DTC: [0x19, 0x02, 0x08],
+        CLEAR_DTC: [0x14, 0xFF, 0xFF, 0xFF],
+        READ_DATA: 0x22
+    };
+
+    // PIDs for GW4D20 (Standardized for this app)
+    const DIDs = {
+        RPM: [0xF4, 0x0C],
+        TEMP: [0xF4, 0x05],
+        BOOST: [0xF4, 0x0B],
+        SOOT: [0xF4, 0x11]
+    };
+
+    async function log(msg, color = "#00ff00") {
+        const console = document.getElementById('console-panel');
+        console.innerHTML += `<div style="color:${color}">> ${msg}</div>`;
+        console.scrollTop = console.scrollHeight;
+    }
+
+    async function initSerial() {
+        try {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 115200 });
+            writer = port.writable.getWriter();
+            log("SERIAL PORT OPENED", "#00f2ff");
+            
+            await setupUDS();
+        } catch (e) {
+            log("CONNECTION FAILED: " + e.message, "red");
         }
     }
 
-    /* Block 11: Persistent Save Engine (Auto-save to internal space) */
-    function saveToInternal() {
-        localStorage.setItem('sov_storage_slot_' + currentSlot, editor.value);
-        updateCharCount();
-        terminalLog("AUTO-SAVED SLOT " + currentSlot);
+    async function setupUDS() {
+        log("INITIALIZING EXTENDED SESSION (10 03)...");
+        await sendCommand(SERVICES.EXTENDED);
+        document.getElementById('dot-session').classList.add('active');
+        
+        // Start Tester Present Heartbeat (Keep Session Alive)
+        setInterval(() => {
+            if (port) sendCommand(SERVICES.TESTER_PRESENT);
+        }, 3000);
+
+        startMonitoring();
     }
 
-    function loadFromInternal(n) {
-        return localStorage.getItem('sov_storage_slot_' + n) || '';
+    async function sendCommand(hexArray) {
+        if (!writer) return;
+        const data = new Uint8Array(hexArray);
+        await writer.write(data);
+        // In a real app, you'd implement a reader to handle Response Pending (7F)
     }
 
-    /* Block 12: Slot Management (Switching logic) */
-    function handleSlotClick(n) {
-        preventDataLoss();
-        switchSlot(n);
+    async function startMonitoring() {
+        isStreaming = true;
+        log("MONITORING START...");
+        loop();
     }
 
-    function switchSlot(n) {
-        currentSlot = n;
-        editor.value = loadFromInternal(n);
-        highlightActiveSlot(n);
-        updateActiveLabel(n);
-        updateCharCount();
+    async function loop() {
+        if (!isStreaming) return;
+
+        // Mock data logic for visualization - replace with real serial read parsing
+        updateGauge('gauge-rpm', Math.random() * 3000 + 800, 6000, 'val-rpm', '');
+        updateGauge('gauge-temp', 85 + Math.random(), 120, 'val-temp', '°C');
+        
+        // Safety Check
+        const temp = 85; 
+        if(temp > 100) document.getElementById('card-temp').classList.add('warning-flash');
+        else document.getElementById('card-temp').classList.remove('warning-flash');
+
+        requestAnimationFrame(loop);
     }
 
-    function highlightActiveSlot(n) {
-        document.querySelectorAll('.slot-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById('slot-' + n).classList.add('active');
+    function updateGauge(id, val, max, valId, unit) {
+        const canvas = document.getElementById(id);
+        const ctx = canvas.getContext('2d');
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = 60;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Track
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0.8 * Math.PI, 2.2 * Math.PI);
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 8;
+        ctx.stroke();
+
+        // Fill
+        const endAngle = 0.8 * Math.PI + (val / max) * (1.4 * Math.PI);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0.8 * Math.PI, endAngle);
+        ctx.strokeStyle = val > (max * 0.8) ? '#ff4d4d' : '#00f2ff';
+        ctx.lineWidth = 8;
+        ctx.stroke();
+
+        document.getElementById(valId).innerText = Math.round(val) + unit;
     }
 
-    /* Block 13: The Extension Matrix (The MIME dictionary) */
-    function getMime(ext) {
-        const matrix = {
-            txt: 'text/plain',
-            js: 'application/javascript',
-            html: 'text/html',
-            css: 'text/css',
-            json: 'application/json',
-            sh: 'application/x-sh',
-            run: 'application/octet-stream',
-            pdf: 'application/pdf'
-        };
-        return matrix[ext] || 'text/plain';
+    async function readFaults() {
+        log("QUERYING FAULTS (SERVICE 19)...", "#ffae00");
+        await sendCommand(SERVICES.READ_DTC);
+        // Expected response would be parsed here
     }
 
-    /* Block 14: The Casting Bridge (Force Download logic) */
-    function castFile() {
-        const ext = document.getElementById('ext-select').value;
-        const fileName = `sov_export_s${currentSlot}.${ext}`;
-        const blob = constructBlob(editor.value, getMime(ext));
-        const anchor = createGhostAnchor(blob, fileName);
-        triggerDownload(anchor);
-        cleanupAnchor(anchor, blob);
+    async function clearFaults() {
+        if(confirm("Confirm Clear All Diagnostic Data?")) {
+            log("SENDING CLEAR COMMAND (14 FF FF FF)...", "red");
+            await sendCommand(SERVICES.CLEAR_DTC);
+        }
     }
 
-    function constructBlob(data, type) { return new Blob([data], { type: type }); }
-    
-    function createGhostAnchor(blob, name) {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = name;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        return a;
-    }
+    // Initialize Canvas sizes
+    document.querySelectorAll('canvas').forEach(c => {
+        c.width = 200;
+        c.height = 200;
+    });
 
-    function triggerDownload(a) { a.click(); terminalLog("FILE CAST SUCCESSFUL"); }
-
-    function cleanupAnchor(a, b) {
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(a.href), 100);
-    }
-
-    // Helper Functions for UI Logic
-    function updateCharCount() { document.getElementById('mem-count').innerText = editor.value.length; }
-    function updateActiveLabel(n) { document.getElementById('active-label').innerText = n; }
-    function terminalLog(msg) { document.getElementById('terminal-out').innerText = "> " + msg; }
-    function preventDataLoss() { saveToInternal(); }
-    function applyRedwater() { console.log("Redwater Baseline Active"); }
-
-    // Initialization
-    function initApp() {
-        createSlotButtons();
-        switchSlot(1);
-        editor.oninput = () => {
-            updateCharCount();
-            saveToInternal();
-        };
-        document.getElementById('save-trigger').onclick = castFile;
-        applyRedwater();
-    }
-
-    initApp();
 </script>
 </body>
 </html>
