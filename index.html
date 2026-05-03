@@ -296,7 +296,7 @@
                     await new Promise(r => setTimeout(r, 200));
                     await sendCommand("0123");
                 }
-            }, 1500); // 1.5s interval to allow ELM327 to respond fully
+            },  500); // 1.5s interval to allow ELM327 to respond fully
         } else {
             clearInterval(liveInterval);
             log("Live Stream Stopped");
