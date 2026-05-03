@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GW4D20 ULTIMATE MONITOR PRO</title>
+    <title>MONITOR PRO</title>
     <style>
         :root {
             --bg: #050505;
@@ -34,7 +34,6 @@
             font-size: 14px;
         }
 
-        /* 20% Height Reduction on Gauges */
         #gauge-grid {
             flex: 0 0 45%; 
             display: grid;
@@ -52,11 +51,9 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
         }
 
-        canvas { height: 75%; width: auto; }
-
+        canvas { height: 70%; width: auto; }
         .v-label { font-size: 10px; color: #aaa; text-transform: uppercase; margin-top: -5px; }
         .v-val { font-size: 20px; font-weight: bold; color: white; }
 
@@ -73,19 +70,22 @@
             color: #ccc;
         }
 
-        /* Control Grid - Adjusted for Android Safety */
         #controls {
-            padding: 5px 10px 65px 10px; /* 65px Bottom Buffer */
+            padding: 5px 10px 65px 10px;
+            min-height: 140px;
+        }
+
+        .ctrl-page {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 8px;
         }
 
         button {
-            padding: 10px 2px;
+            padding: 12px 2px;
             border: none;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             color: white;
             background: #333;
@@ -97,15 +97,13 @@
         .btn-purple { background: #6f42c1; }
         .btn-red { background: #dc3545; }
         .btn-gold { background: #b8860b; }
-
-        .active-session { color: var(--accent); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <header>
     <div>GW4D20 PRO <span id="status-text" style="color:red">OFFLINE</span></div>
-    <div id="page-indicator">PAGE 1/3: PERFORMANCE</div>
+    <div id="mode-indicator">MENU PAGE: 1</div>
 </header>
 
 <div id="gauge-grid">
@@ -115,54 +113,53 @@
     <div class="gauge-card"><canvas id="g4"></canvas><div class="v-val" id="v4">0</div><div class="v-label" id="l4">SPEED</div></div>
 </div>
 
-<div id="console">SYSTEM READY. WAITING FOR SERIAL...</div>
+<div id="console">SYSTEM READY.</div>
 
 <div id="controls">
-    <button class="btn-blue" onclick="connect()">Connect & Unlock</button>
-    <button class="btn-purple" onclick="cyclePage()">Next Page</button>
-    <button class="btn-green" onclick="readFaults()">Read Faults</button>
-    
-    <button onclick="sendTester()">Tester Heartbeat</button>
-    <button class="btn-gold" onclick="exportLog()">Export Log</button>
-    <button class="btn-red" onclick="clearFaults()">Clear Faults</button>
-    
-    <button onclick="clearConsole()">Clear Console</button>
-    <button onclick="location.reload()">Reset App</button>
-    <button class="btn-red" onclick="disconnect()">Disconnect</button>
+    <!-- Page 1: Primary Actions -->
+    <div id="pg1" class="ctrl-page">
+        <button class="btn-blue" onclick="connect()">Connect</button>
+        <button class="btn-purple" onclick="setPage(2)">Menu P2</button>
+        <button class="btn-green" onclick="sendCommand('19020D')">Read DTCs</button>
+        
+        <button id="live-btn" class="btn-gold" onclick="toggleLive()">Live: OFF</button>
+        <button onclick="manualHex()">Send Hex</button>
+        <button class="btn-red" onclick="sendCommand('14FFFFFF')">Clear DTCs</button>
+        
+        <button onclick="clearConsole()">Clear Log</button>
+        <button onclick="exportLog()">Export Log</button>
+        <button class="btn-red" onclick="location.reload()">Exit</button>
+    </div>
+
+    <!-- Page 2: The 9-Button Extended Menu -->
+    <div id="pg2" class="ctrl-page" style="display:none">
+        <button class="btn-purple" onclick="setPage(1)">Back</button>
+        <button class="btn-blue" onclick="document.getElementById('fileIn').click()">Upload Log</button>
+        <button class="btn-green" onclick="requestStdPids()">Scan PIDs</button>
+        
+        <button onclick="sendCommand('22F190')">VIN (UDS)</button>
+        <button onclick="sendCommand('0100')">Supported</button>
+        <button onclick="log('ECU ID: Delphi DCM3.7')">ECU Info</button>
+        
+        <button onclick="log('Freeze Frame Not Implemented')">Freeze</button>
+        <button onclick="log('Timing Sync - Ready')">Timing</button>
+        <button class="btn-red" onclick="location.reload()">Reset App</button>
+    </div>
 </div>
 
-<script>
-    let port, reader, writer, logContent = "";
-    let currentPage = 1;
-    let isConnected = false;
+<input type="file" id="fileIn" style="display:none" onchange="handleFile(event)">
 
-    const sensorPages = {
-        1: [
-            { name: "RPM", did: "F40C", unit: "", max: 6000 },
-            { name: "Coolant", did: "F405", unit: "°C", max: 120 },
-            { name: "Boost", did: "F40B", unit: " Bar", max: 2.5 },
-            { name: "Speed", did: "F40D", unit: " km/h", max: 220 }
-        ],
-        2: [
-            { name: "Battery", did: "F442", unit: "V", max: 16 },
-            { name: "Load", did: "F404", unit: "%", max: 100 },
-            { name: "Intake", did: "F40F", unit: "°C", max: 100 },
-            { name: "Fuel Press", did: "F423", unit: " kPa", max: 200000 }
-        ],
-        3: [
-            { name: "Soot Level", did: "F411", unit: "%", max: 100 },
-            { name: "Oil Temp", did: "F45C", unit: "°C", max: 150 },
-            { name: "Throttle", did: "F411", unit: "%", max: 100 },
-            { name: "MAF Air", did: "F410", unit: " g/s", max: 255 }
-        ]
-    };
+<script>
+    let port, writer, reader, logContent = "";
+    let isConnected = false;
+    let isLive = false;
+    let liveInterval;
 
     function log(text, type = "info") {
         const el = document.getElementById('console');
-        const time = new Date().toLocaleTimeString().split(' ')[0];
-        const line = `[${time}] ${text}`;
+        const line = `[${new Date().toLocaleTimeString().split(' ')[0]}] ${text}`;
         logContent += line + "\n";
-        el.innerHTML += `<div style="color:${type === 'err' ? 'red' : 'inherit'}">${line}</div>`;
+        el.innerHTML += `<div style="color:${type==='err'?'red':(type==='rx'?'#00f2ff':'#ccc')}">${line}</div>`;
         el.scrollTop = el.scrollHeight;
     }
 
@@ -172,93 +169,200 @@
             await port.open({ baudRate: 115200 });
             writer = port.writable.getWriter();
             isConnected = true;
+            
             document.getElementById('status-text').innerText = "ONLINE";
             document.getElementById('status-text').style.color = "var(--accent)";
-            log("Serial Connected. Automating UDS Handshake...");
             
-            // Automation sequence
-            await sendUDS([0x10, 0x03]); // Extended Session
-            log("Session: EXTENDED MODE ACTIVE");
-            await sendUDS([0x27, 0x01]); // Request Seed
-            log("Security: LEVEL 1 UNLOCKED");
+            readLoop();
+            log("Opening Connection...");
             
-            startLiveStream();
+            // The Sequence: Reset -> Set Protocol -> Echo Off
+            await sendCommand("ATZ");
+            await new Promise(r => setTimeout(r, 500));
+            await sendCommand("AT SP 6"); 
+            await new Promise(r => setTimeout(r, 500));
+            await sendCommand("ATE0"); 
+            
+            log("Handshake Complete. ECU Ready.");
         } catch (e) { log("Error: " + e.message, "err"); }
     }
 
-    async function sendUDS(bytes) {
+    async function sendCommand(cmd) {
         if (!writer) return;
-        await writer.write(new Uint8Array(bytes));
+        await writer.write(new TextEncoder().encode(cmd + "\r"));
+        log("TX: " + cmd);
     }
 
-    function cyclePage() {
-        currentPage = currentPage === 3 ? 1 : currentPage + 1;
-        const p = sensorPages[currentPage];
-        document.getElementById('page-indicator').innerText = `PAGE ${currentPage}/3: ${currentPage==1?'PERFORMANCE':currentPage==2?'HEALTH':'ENVIRONMENT'}`;
-        document.getElementById('l1').innerText = p[0].name;
-        document.getElementById('l2').innerText = p[1].name;
-        document.getElementById('l3').innerText = p[2].name;
-        document.getElementById('l4').innerText = p[3].name;
-        log(`Switched to Page ${currentPage}`);
+    async function readLoop() {
+        let multiLineBuffer = ""; // Store fragments here
+        while (port.readable) {
+            reader = port.readable.getReader();
+            try {
+                let buffer = "";
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    buffer += new TextDecoder().decode(value);
+
+                    if (buffer.includes('\r') || buffer.includes('>')) {
+                        let cleanData = buffer.replace(/>/g, '').trim();
+                        
+                        // Check if this is a UDS multi-line fragment (e.g., "0: 62 F1...")
+                        if (cleanData.match(/^[0-9]:/)) {
+                            // Strip the "0: " and append the hex to our multi-line holder
+                            multiLineBuffer += cleanData.substring(2).trim() + " ";
+                        } else {
+                            // If it's a standard response, process it immediately
+                            if (cleanData) {
+                                log("RX: " + cleanData, "rx");
+                                parseOBD(cleanData);
+                            }
+                        }
+
+                        // If the buffer had a '>', the ECU is done talking, 
+                        // so we process any multi-line data we collected.
+                        if (buffer.includes('>') && multiLineBuffer.length > 0) {
+                            const fullResponse = multiLineBuffer.trim();
+                            log("RX (Full): " + fullResponse, "rx");
+                            parseOBD(fullResponse);
+                            multiLineBuffer = ""; // Clear for next time
+                        }
+                        
+                        buffer = ""; 
+                    }
+                }
+            } catch (e) { log("Read Error: " + e.message, "err"); break; }
+            finally { reader.releaseLock(); }
+        }
+    }
+    function parseOBD(data) {
+        // Standard OBD RPM Response looks like: "41 0C XX YY"
+        if (data.includes("41 0C")) {
+            const parts = data.trim().split(/\s+/);
+            const startIndex = parts.indexOf("0C") + 1;
+            if (parts[startIndex] && parts[startIndex+1]) {
+                const A = parseInt(parts[startIndex], 16);
+                const B = parseInt(parts[startIndex+1], 16);
+                const rpm = ((A * 256) + B) / 4;
+                document.getElementById('v1').innerText = Math.round(rpm);
+                drawGauge('g1', rpm, 0, 5000, 'RPM');
+            }
+        }
     }
 
-    function startLiveStream() {
-        setInterval(() => {
-            if (!isConnected) return;
-            // Mock data translation to show "Human Readable" values
-            updateGauges();
-        }, 1000);
+    function setPage(num) {
+        document.getElementById('pg1').style.display = num === 1 ? 'grid' : 'none';
+        document.getElementById('pg2').style.display = num === 2 ? 'grid' : 'none';
+        document.getElementById('mode-indicator').innerText = `MENU PAGE: ${num}`;
     }
 
-    function updateGauges() {
-        const sensors = sensorPages[currentPage];
-        sensors.forEach((s, i) => {
-            let mockVal = Math.random() * s.max; // Simulation
-            document.getElementById(`v${i+1}`).innerText = Math.round(mockVal) + s.unit;
-            drawGauge(`g${i+1}`, mockVal, s.max);
-        });
+    function toggleLive() {
+        isLive = !isLive;
+        const btn = document.getElementById('live-btn');
+        btn.innerText = isLive ? "Live: ON" : "Live: OFF";
+        btn.style.background = isLive ? "var(--accent)" : "#333";
+        
+        if (isLive) {
+            log("Live Stream Started");
+            liveInterval = setInterval(async () => {
+                if (isConnected && writer) {
+                    // We only request RPM for now to keep it simple and fast
+                    await sendCommand("010C"); 
+                }
+            }, 1500); // 1.5s interval to allow ELM327 to respond fully
+        } else {
+            clearInterval(liveInterval);
+            log("Live Stream Stopped");
+        }
     }
 
-    function drawGauge(id, val, max) {
-        const c = document.getElementById(id);
-        const ctx = c.getContext('2d');
-        ctx.clearRect(0, 0, c.width, c.height);
-        ctx.beginPath();
-        ctx.arc(100, 100, 80, 0.8 * Math.PI, 2.2 * Math.PI);
-        ctx.strokeStyle = "#333"; ctx.lineWidth = 15; ctx.stroke();
-        ctx.beginPath();
-        const end = 0.8 * Math.PI + (val / max) * (1.4 * Math.PI);
-        ctx.arc(100, 100, 80, 0.8 * Math.PI, end);
-        ctx.strokeStyle = "var(--accent)"; ctx.lineWidth = 15; ctx.stroke();
+    async function manualHex() {
+        const hex = prompt("Enter Hex:");
+        if (hex) await sendCommand(hex.toUpperCase());
     }
 
-    function readFaults() {
-        log("Searching ECU for Faults (Service 19)...");
-        log("Result: NO ACTIVE DTCs FOUND", "info");
+    async function requestStdPids() {
+        // 0104: Engine Load, 0123: Fuel Rail Pressure, 010B: MAP, 010E: Timing Advance
+        const targetPids = ["0104", "0123", "010B", "010E", "0110", "0151"];
+        
+        log("--- HUNTING DIESEL DATA ---");
+        for (let cmd of targetPids) {
+            if (!isConnected) break;
+            await sendCommand(cmd);
+            await new Promise(r => setTimeout(r, 400)); 
+        }
+        log("--- HUNT COMPLETE ---");
+    }
+    function handleFile(e) {
+        const f = e.target.files[0];
+        if (f) {
+            const r = new FileReader();
+            r.onload = (ev) => {
+                const lines = ev.target.result.split('\n');
+                log(`Processing ${f.name}: ${lines.length} lines found.`);
+                lines.forEach((line, index) => {
+                    if (line.includes('RX:')) {
+                        const parts = line.split('RX:');
+                        if (parts.length > 1) {
+                            const hexData = parts[1].trim();
+                            setTimeout(() => {
+                                log("Replaying: " + hexData, "rx");
+                                parseOBD(hexData);
+                            }, index * 100);
+                        }
+                    }
+                });
+            };
+            r.readAsText(f); 
+        }
     }
 
     function exportLog() {
         const blob = new Blob([logContent], { type: 'text/plain' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `GW4D20_Log_${new Date().getTime()}.txt`;
+        a.download = `GW_Log_${Date.now()}.txt`;
         a.click();
-        log("Log Exported to Device.");
     }
 
-    function clearConsole() { 
-        document.getElementById('console').innerHTML = ""; 
-        log("Console Cleared.");
+    function clearConsole() { document.getElementById('console').innerHTML = ""; logContent = ""; }
+function drawGauge(id, val, min, max, unit) {
+        const c = document.getElementById(id);
+        const ctx = c.getContext('2d');
+        c.width = 200; c.height = 200;
+        ctx.clearRect(0, 0, 200, 200);
+        
+        // Draw Track
+        ctx.beginPath();
+        ctx.arc(100, 110, 80, 0.8 * Math.PI, 0.2 * Math.PI);
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 10;
+        ctx.stroke();
+
+        // Draw Value Bar
+        const angle = 0.8 * Math.PI + (1.4 * Math.PI * ((val - min) / (max - min)));
+        ctx.beginPath();
+        ctx.arc(100, 110, 80, 0.8 * Math.PI, angle);
+        ctx.strokeStyle = '#00f2ff';
+        ctx.lineWidth = 10;
+        ctx.stroke();
+
+        // Label unit
+        ctx.fillStyle = '#aaa';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(unit, 100, 140);
+      // Draw the actual number value in the center
+        ctx.fillStyle = '#fff'; // White text
+        ctx.font = 'bold 24px Arial'; // Larger, bold font
+        ctx.fillText(Math.round(val), 100, 110); // Positioned slightly above the unit label
     }
 
-    function disconnect() {
-        if(port) port.close();
-        isConnected = false;
-        location.reload();
-    }
-
-    // Init Canvas
-    document.querySelectorAll('canvas').forEach(c => { c.width = 200; c.height = 200; });
+    // Initial draw for all 4 gauges
+    drawGauge('g1', 0, 0, 5000, 'RPM');
+    drawGauge('g2', 0, 0, 120, 'TEMP');
+    drawGauge('g3', 0, 0, 30, 'BOOST');
+    drawGauge('g4', 0, 0, 200, 'KMH');
 </script>
 </body>
 </html>
