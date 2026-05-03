@@ -236,17 +236,40 @@
         }
     }
     function parseOBD(data) {
-        // Standard OBD RPM Response looks like: "41 0C XX YY"
+        const parts = data.trim().split(/\s+/);
+        
+        // 1. RPM (01 0C) - Confirmed at 750 RPM
         if (data.includes("41 0C")) {
-            const parts = data.trim().split(/\s+/);
-            const startIndex = parts.indexOf("0C") + 1;
-            if (parts[startIndex] && parts[startIndex+1]) {
-                const A = parseInt(parts[startIndex], 16);
-                const B = parseInt(parts[startIndex+1], 16);
-                const rpm = ((A * 256) + B) / 4;
-                document.getElementById('v1').innerText = Math.round(rpm);
-                drawGauge('g1', rpm, 0, 5000, 'RPM');
-            }
+            const idx = parts.indexOf("0C") + 1;
+            const rpm = ((parseInt(parts[idx], 16) * 256) + parseInt(parts[idx+1], 16)) / 4;
+            document.getElementById('v1').innerText = Math.round(rpm);
+            drawGauge('g1', rpm, 0, 5000, 'RPM');
+        }
+        
+        // 2. FUEL RAIL PRESSURE (01 23) - Confirmed at 26.1 MPa
+        if (data.includes("41 23")) {
+            const idx = parts.indexOf("23") + 1;
+            const frp = (parseInt(parts[idx], 16) * 256 + parseInt(parts[idx+1], 16)) * 10;
+            const mpa = (frp / 1000).toFixed(1);
+            document.getElementById('v2').innerText = mpa;
+            drawGauge('g2', mpa, 0, 180, 'MPa'); // Using Temp gauge for Fuel Pressure for now
+        }
+
+        // 3. BOOST / MAP (01 0B) - Confirmed at 102 kPa
+        if (data.includes("41 0B")) {
+            const idx = parts.indexOf("0B") + 1;
+            const map = parseInt(parts[idx], 16); 
+            const boost = Math.max(0, (map - 101) * 0.145); 
+            document.getElementById('v3').innerText = boost.toFixed(1);
+            drawGauge('g3', boost, 0, 30, 'PSI');
+        }
+
+        // 4. ENGINE LOAD (01 04) - Confirmed at 14%
+        if (data.includes("41 04")) {
+            const idx = parts.indexOf("04") + 1;
+            const load = Math.round(parseInt(parts[idx], 16) / 2.55);
+            document.getElementById('v4').innerText = load;
+            drawGauge('g4', load, 0, 100, '% LOAD'); // Using Speed gauge for Load for now
         }
     }
 
