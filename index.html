@@ -289,8 +289,12 @@
             log("Live Stream Started");
             liveInterval = setInterval(async () => {
                 if (isConnected && writer) {
-                    // We only request RPM for now to keep it simple and fast
+                    // Request RPM, MAP (Boost), and Fuel Rail Pressure
                     await sendCommand("010C"); 
+                    await new Promise(r => setTimeout(r, 200));
+                    await sendCommand("010B");
+                    await new Promise(r => setTimeout(r, 200));
+                    await sendCommand("0123");
                 }
             }, 1500); // 1.5s interval to allow ELM327 to respond fully
         } else {
