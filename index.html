@@ -126,7 +126,7 @@
         <button onclick="manualHex()">Send Hex</button>
         <button class="btn-red" onclick="sendCommand('14FFFFFF')">Clear DTCs</button>
         
-        <button onclick="clearConsole()">Clear Log</button>
+        <button class="btn-gold" onclick="deepScanF1()">Deep Scan F1</button>
         <button onclick="exportLog()">Export Log</button>
         <button class="btn-red" onclick="location.reload()">Exit</button>
     </div>
@@ -301,6 +301,19 @@
             clearInterval(liveInterval);
             log("Live Stream Stopped");
         }
+    }
+
+    async function deepScanF1() {
+    if (!isConnected) { log("Connect first!", "err"); return; }
+    log("--- STARTING F1 ADDRESS SCAN ---");
+    // This scans the neighborhood where your VIN (F190) lives
+    const range = ["F187", "F188", "F189", "F190", "F191", "F197", "F1A0"];
+    
+    for (let id of range) {
+        await sendCommand("22" + id);
+        await new Promise(r => setTimeout(r, 400)); // Delay to prevent buffer overflow
+    }
+    log("--- SCAN COMPLETE ---");
     }
 
     async function manualHex() {
