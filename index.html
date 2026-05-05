@@ -185,7 +185,7 @@
             
             log("Handshake Complete. ECU Ready.");
         } catch (e) { log("Error: " + e.message, "err"); }
-    }
+    
 
     async function sendCommand(cmd) {
         if (!writer) return;
