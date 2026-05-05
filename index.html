@@ -234,7 +234,7 @@
             } catch (e) { log("Read Error: " + e.message, "err"); break; }
             finally { reader.releaseLock(); }
         }
-
+    }
         function parseOBD(data) {
     const parts = data.trim().split(/\s+/);
     
