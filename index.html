@@ -234,12 +234,20 @@
             } catch (e) { log("Read Error: " + e.message, "err"); break; }
             finally { reader.releaseLock(); }
         }
-    }
-    function parseOBD(data) {
+
+        function parseOBD(data) {
     const parts = data.trim().split(/\s+/);
     
-    // 1. FUEL RAIL PRESSURE (Using your verified 1123 code)
-    if (data.includes("62 11 23")) {
+    // 1. RPM (Mode 01 or Mode 22)
+    if (data.includes("41 0C") || data.includes("62 11 0C")) {
+        const idx = parts.indexOf("0C") + 1;
+        const rpm = ((parseInt(parts[idx], 16) * 256) + parseInt(parts[idx+1], 16)) / 4;
+        document.getElementById('v1').innerText = Math.round(rpm);
+        drawGauge('g1', rpm, 0, 5000, 'RPM');
+    }
+    
+    // 2. FUEL RAIL PRESSURE (Mode 01 or Mode 22 verified DID 1123)
+    if (data.includes("41 23") || data.includes("62 11 23")) {
         const idx = parts.indexOf("23") + 1;
         const frp = (parseInt(parts[idx], 16) * 256 + parseInt(parts[idx+1], 16)) * 10;
         const mpa = (frp / 1000).toFixed(1);
@@ -247,49 +255,28 @@
         drawGauge('g2', mpa, 0, 180, 'MPa');
     }
 
-    // 2. BOOST PRESSURE (Using your verified 1167 code)
-    if (data.includes("62 11 67")) {
-        const idx = parts.indexOf("67") + 1;
-        const boost = (parseInt(parts[idx], 16) - 101) * 0.145; // kPa to PSI
-        document.getElementById('v3').innerText = Math.max(0, boost).toFixed(1);
+    // 3. BOOST PRESSURE (Mode 01 or Mode 22 verified DID 1167)
+    if (data.includes("41 0B") || data.includes("62 11 67")) {
+        const idx = data.includes("62 11 67") ? parts.indexOf("67") + 1 : parts.indexOf("0B") + 1;
+        const raw = parseInt(parts[idx], 16);
+        const boost = Math.max(0, (raw - 101) * 0.145); 
+        document.getElementById('v3').innerText = boost.toFixed(1);
         drawGauge('g3', boost, 0, 30, 'PSI');
     }
 
-    // 3. COOLANT TEMP (Using your verified 1121 code)
-    if (data.includes("62 11 21")) {
+    // 4. TEMP / LOAD (Mode 01 Load or Mode 22 verified DID 1121 Temp)
+    if (data.includes("41 04")) {
+        const idx = parts.indexOf("04") + 1;
+        const load = Math.round(parseInt(parts[idx], 16) / 2.55);
+        document.getElementById('v4').innerText = load;
+        drawGauge('g4', load, 0, 100, '% LOAD');
+    } else if (data.includes("62 11 21")) {
         const idx = parts.indexOf("21") + 1;
         const temp = parseInt(parts[idx], 16) - 40;
         document.getElementById('v4').innerText = temp;
         drawGauge('g4', temp, 0, 120, 'TEMP°C');
     }
-    }
-        
-        // 2. FUEL RAIL PRESSURE (01 23) - Confirmed at 26.1 MPa
-        if (data.includes("41 23")) {
-            const idx = parts.indexOf("23") + 1;
-            const frp = (parseInt(parts[idx], 16) * 256 + parseInt(parts[idx+1], 16)) * 10;
-            const mpa = (frp / 1000).toFixed(1);
-            document.getElementById('v2').innerText = mpa;
-            drawGauge('g2', mpa, 0, 180, 'MPa'); // Using Temp gauge for Fuel Pressure for now
         }
-
-        // 3. BOOST / MAP (01 0B) - Confirmed at 102 kPa
-        if (data.includes("41 0B")) {
-            const idx = parts.indexOf("0B") + 1;
-            const map = parseInt(parts[idx], 16); 
-            const boost = Math.max(0, (map - 101) * 0.145); 
-            document.getElementById('v3').innerText = boost.toFixed(1);
-            drawGauge('g3', boost, 0, 30, 'PSI');
-        }
-
-        // 4. ENGINE LOAD (01 04) - Confirmed at 14%
-        if (data.includes("41 04")) {
-            const idx = parts.indexOf("04") + 1;
-            const load = Math.round(parseInt(parts[idx], 16) / 2.55);
-            document.getElementById('v4').innerText = load;
-            drawGauge('g4', load, 0, 100, '% LOAD'); // Using Speed gauge for Load for now
-        }
-    }
 
     function setPage(num) {
         document.getElementById('pg1').style.display = num === 1 ? 'grid' : 'none';
