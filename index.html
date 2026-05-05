@@ -134,7 +134,7 @@
     <!-- Page 2: The 9-Button Extended Menu -->
     <div id="pg2" class="ctrl-page" style="display:none">
         <button class="btn-purple" onclick="setPage(1)">Back</button>
-        <button class="btn-blue" onclick="document.getElementById('fileIn').click()">Upload Log</button>
+        <button class="btn-green" onclick="scanMode01()">Scan 41 Range</button>
         <button class="btn-green" onclick="requestStdPids()">Scan PIDs</button>
         
         <button onclick="sendCommand('22F190')">VIN (UDS)</button>
@@ -301,6 +301,19 @@
             clearInterval(liveInterval);
             log("Live Stream Stopped");
         }
+    }
+
+    async function scanMode01() {
+    if (!isConnected) return;
+    log("--- SCANNING STANDARD MODE 01 ---");
+    // These are the most common "41" response IDs
+    const stdPids = ["00", "01", "04", "05", "0C", "0D", "0F", "10", "11", "23"];
+    
+    for (let id of stdPids) {
+        await sendCommand("01" + id);
+        await new Promise(r => setTimeout(r, 300));
+    }
+    log("--- SCAN COMPLETE ---");
     }
 
     async function deepScanF1() {
