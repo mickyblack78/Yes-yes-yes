@@ -236,15 +236,33 @@
         }
     }
     function parseOBD(data) {
-        const parts = data.trim().split(/\s+/);
-        
-        // 1. RPM (01 0C) - Confirmed at 750 RPM
-        if (data.includes("41 0C")) {
-            const idx = parts.indexOf("0C") + 1;
-            const rpm = ((parseInt(parts[idx], 16) * 256) + parseInt(parts[idx+1], 16)) / 4;
-            document.getElementById('v1').innerText = Math.round(rpm);
-            drawGauge('g1', rpm, 0, 5000, 'RPM');
-        }
+    const parts = data.trim().split(/\s+/);
+    
+    // 1. FUEL RAIL PRESSURE (Using your verified 1123 code)
+    if (data.includes("62 11 23")) {
+        const idx = parts.indexOf("23") + 1;
+        const frp = (parseInt(parts[idx], 16) * 256 + parseInt(parts[idx+1], 16)) * 10;
+        const mpa = (frp / 1000).toFixed(1);
+        document.getElementById('v2').innerText = mpa;
+        drawGauge('g2', mpa, 0, 180, 'MPa');
+    }
+
+    // 2. BOOST PRESSURE (Using your verified 1167 code)
+    if (data.includes("62 11 67")) {
+        const idx = parts.indexOf("67") + 1;
+        const boost = (parseInt(parts[idx], 16) - 101) * 0.145; // kPa to PSI
+        document.getElementById('v3').innerText = Math.max(0, boost).toFixed(1);
+        drawGauge('g3', boost, 0, 30, 'PSI');
+    }
+
+    // 3. COOLANT TEMP (Using your verified 1121 code)
+    if (data.includes("62 11 21")) {
+        const idx = parts.indexOf("21") + 1;
+        const temp = parseInt(parts[idx], 16) - 40;
+        document.getElementById('v4').innerText = temp;
+        drawGauge('g4', temp, 0, 120, 'TEMP°C');
+    }
+    }
         
         // 2. FUEL RAIL PRESSURE (01 23) - Confirmed at 26.1 MPa
         if (data.includes("41 23")) {
